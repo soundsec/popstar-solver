@@ -70,7 +70,7 @@ python main.py --auto
 python -m unittest discover -s tests
 ```
 
-图片识别回归测试需要本机有 Node。用 `识别测试/` 里的实机截图对拍时，还需要 Pillow 和 numpy；没有这些依赖时，对应测试会跳过，其余测试照常跑。
+图片识别回归测试需要本机有 Node。需要提前准备测试图像，还需要 Pillow 和 numpy；没有这些依赖时，对应测试会跳过，其余测试照常跑。
 
 `python bench10.py` 是 10×10 基准，全量大约几分钟，结果写到 `runs/`（该目录不纳入版本库）。
 
