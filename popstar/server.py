@@ -6,8 +6,8 @@
 
 用法::
 
-    python ui_server.py                 # http://127.0.0.1:8765
-    python ui_server.py --port 9000
+    python -m popstar.server            # http://127.0.0.1:8765
+    python -m popstar.server --port 9000
 
 只监听 127.0.0.1，且静态文件限制在 ``ui/`` 目录内（防路径穿越）。
 """
@@ -44,7 +44,8 @@ from popstar.solver import (
     pareto_search,
 )
 
-UI_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+UI_DIR = os.path.join(ROOT, "ui")
 
 MAX_BOARD_CELLS = 400  # 防止手滑提交一个巨大棋盘把服务拖死
 

@@ -10,11 +10,11 @@
 
 用法::
 
-    python bench10.py                       # 全量（约 5~8 分钟）
-    python bench10.py --seeds 4 --quick     # 快速版
-    python bench10.py --only facts bound    # 只跑指定段
-    python bench10.py --sweep-eval          # 额外扫评估权重
-    python bench10.py --log runs/bench10.jsonl
+    python -m bench.bench10                       # 全量（约 5~8 分钟）
+    python -m bench.bench10 --seeds 4 --quick     # 快速版
+    python -m bench.bench10 --only facts bound    # 只跑指定段
+    python -m bench.bench10 --sweep-eval          # 额外扫评估权重
+    python -m bench.bench10 --log runs/bench10.jsonl
 
 分段
 ----
@@ -28,6 +28,11 @@
 """
 
 from __future__ import annotations
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import random

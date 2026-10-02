@@ -22,7 +22,7 @@ import time
 import webbrowser
 from typing import Optional
 
-import ui_server
+from popstar.server import UI_DIR, build_server
 
 DEFAULT_PORT = 8765
 MAX_PORT_TRIES = 20
@@ -74,13 +74,13 @@ def main(argv: Optional[list] = None) -> int:
                         help="端口被占用时直接报错，不自动换端口")
     args = parser.parse_args(argv)
 
-    if not os.path.isdir(ui_server.UI_DIR):
-        print(f"缺少 ui 目录：{ui_server.UI_DIR}", file=sys.stderr)
+    if not os.path.isdir(UI_DIR):
+        print(f"缺少 ui 目录：{UI_DIR}", file=sys.stderr)
         return 1
 
     port = pick_port(args.host, args.port, not args.no_port_scan)
     try:
-        server = ui_server.build_server(args.host, port)
+        server = build_server(args.host, port)
     except OSError as exc:
         print(f"无法监听 {args.host}:{port} —— {exc}", file=sys.stderr)
         return 1

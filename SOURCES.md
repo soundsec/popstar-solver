@@ -1,8 +1,10 @@
 # 来源与代码审查
 
+发布到公开仓库之前核对过一遍：本仓库的程序是在这里写的，玩法规则有公开的历史来源，默认计分不是任何一款商业游戏的原公式。
+
 ## 代码
 
-`popstar/`、`ui/`、`ui_server.py`、`start.py`、测试和基准脚本都是本仓库自己的实现。没有拷入第三方游戏客户端、求解器仓库或杂志上的 Chain Shot! 源码。
+`popstar/`（含本机服务 `popstar/server.py`）、`ui/`、`start.py`、`tests/` 和 `bench/` 都是本仓库自己的实现。没有拷入第三方游戏客户端、求解器仓库或杂志上的 Chain Shot! 源码。
 
 用到的算法是搜索里的常规做法，在本仓库里写成可对拍的几层：
 
@@ -18,8 +20,9 @@
 - Frank W. Takes, Walter A. Kosters. *Solving SameGame and its Chessboard Variant*. Leiden University. <https://liacs.leidenuniv.nl/~takesfw/pdf/samegame.pdf>
 - Maarten P. D. Schadd, Mark H. M. Winands, Mandy J. W. Tak, Jos W. H. M. Uiterwijk. Single-player Monte-Carlo tree search for SameGame. *Knowledge-Based Systems* 34 (2012): 3–11. 介绍页：<https://project.dke.maastrichtuniversity.nl/games/games_samegame.htm>
 
-图片识别（`ui/vision.js`）也是为自用截图写的：按方块大小拟合格子，在避开中心图案的环带上取色，再按色相聚类。亮度权重 `0.299, 0.587, 0.114` 来自 ITU-R BT.601：<https://www.itu.int/rec/R-REC-BT.601>
+图片识别（`ui/vision.js`）也是为本仓库的截图写的：按方块大小拟合格子，在避开中心图案的环带上取色，再按色相聚类。亮度权重 `0.299, 0.587, 0.114` 来自 ITU-R BT.601：<https://www.itu.int/rec/R-REC-BT.601>
 
+仓库里没有商业游戏的图片、音效、关卡或名称标识。`识别测试/` 若放入实机截图，那些截图属于原游戏画面，公开仓库前请自行决定要不要放上去。
 
 ## 玩法从哪来
 
@@ -40,7 +43,7 @@
 
 本仓库标题里的 PopStar，指的是后来在手机上流行的那一款，不是 1985 年的原程序。
 
-公开报道里的说法是：独立开发者 **Brian Baek** 约在 2009 年做出 **PopStar!**；中文版《消灭星星》约在 2014 年由掌游天下（北京）引进。这些是采访和百科的转述：
+公开报道里的说法是：独立开发者 **Brian Baek** 约在 2009 年做出 **PopStar!**；中文版《消灭星星》约在 2014 年由掌游天下（北京）引进。这些是采访和百科的转述，不是本仓库能核对的原始合同：
 
 - GameLook，2017-03-22：<http://www.gamelook.com.cn/2017/03/286790/>
 - 壹读对开发者与掌游天下的采访：<https://read01.com/NaJ3dG.html>

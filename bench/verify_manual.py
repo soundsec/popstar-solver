@@ -2,7 +2,7 @@
 
 运行::
 
-    python verify_manual.py
+    python -m bench.verify_manual
 
 逐个展示：初始棋盘 -> 连通块清单 -> 选定动作 -> 转移后棋盘 -> 得分，
 末尾附加一个 10x10 四色随机局的端到端回放校验。
@@ -11,8 +11,11 @@
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from popstar.analysis import format_summary, summarize
 from popstar.board import (

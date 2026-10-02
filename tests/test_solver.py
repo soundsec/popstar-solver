@@ -36,6 +36,7 @@ from popstar.solver import (
     group_score_ceiling,
     merge_potential,
     nonclear_group_ceiling,
+    lookahead_bound,
     optimistic_bound,
     optimistic_bound_with_ceiling,
     pareto_search,
@@ -319,6 +320,50 @@ class TestRefinedUpperBound(unittest.TestCase):
         counts = [3, 3]
         naive_value2 = sum(naive.score_group(n) for n in counts) + naive.score_terminal(0)
         self.assertAlmostEqual(optimistic_bound(without_dead, naive), naive_value2)
+
+
+class TestLookaheadBound(unittest.TestCase):
+    def test_depth_zero_matches_the_static_bound(self):
+        state = create_board([[0, 0, 1], [1, 1, 0]])
+        self.assertAlmostEqual(
+            lookahead_bound(state, depth=0),
+            optimistic_bound(state, DEFAULT_SCORING),
+        )
+
+    def test_terminal_is_the_bonus_at_every_depth(self):
+        state = create_board([[0, 1], [1, 0]])
+        bonus = DEFAULT_SCORING.score_terminal(4)
+        for depth in range(3):
+            self.assertAlmostEqual(lookahead_bound(state, depth=depth), bonus)
+
+    def test_deeper_bound_stays_admissible_and_does_not_rise(self):
+        state = create_board([
+            [0, 0, 1, 1],
+            [1, 1, 0, 0],
+        ])
+        exact = ExactSolver(use_memo=True, use_bound=True).solve(state).best_score
+        bounds = [lookahead_bound(state, depth=depth) for depth in range(3)]
+        self.assertLess(bounds[1], bounds[0] - 1)
+        self.assertLessEqual(bounds[2], bounds[1] + 1e-9)
+        self.assertGreaterEqual(bounds[2] + 1e-9, exact)
+
+    def test_random_boards_stay_above_the_exact_score(self):
+        for seed in range(4):
+            state = random_board(4, 4, 3, random.Random(seed + 20))
+            exact = ExactSolver(use_memo=True, use_bound=True).solve(state).best_score
+            previous = float("inf")
+            for depth in range(3):
+                bound = lookahead_bound(state, depth=depth)
+                self.assertGreaterEqual(previous + 1e-6, bound)
+                self.assertGreaterEqual(bound + 1e-6, exact)
+                previous = bound
+
+    def test_bound_depth_does_not_change_the_proven_score(self):
+        state = random_board(4, 4, 3, random.Random(8))
+        plain = ExactSolver(use_memo=True, use_bound=True).solve(state)
+        deeper = ExactSolver(use_memo=True, use_bound=True, bound_depth=2).solve(state)
+        self.assertTrue(plain.is_proven_optimal and deeper.is_proven_optimal)
+        self.assertAlmostEqual(plain.best_score, deeper.best_score)
 
 
 class TestCompactState(unittest.TestCase):

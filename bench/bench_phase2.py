@@ -2,9 +2,9 @@
 
 用法::
 
-    python bench_phase2.py                 # 默认：对拍 + 5x5~8x8 + 10x10
-    python bench_phase2.py --log runs/phase2.jsonl
-    python bench_phase2.py --limit 10      # 缩短每个实例的时限
+    python -m bench.bench_phase2                 # 默认：对拍 + 5x5~8x8 + 10x10
+    python -m bench.bench_phase2 --log runs/phase2.jsonl
+    python -m bench.bench_phase2 --limit 10      # 缩短每个实例的时限
 
 输出三段：
 
@@ -14,6 +14,11 @@ C. 10x10 四色——Fast(beam) 给出 best found，Exact 在时限内尽力证�
 """
 
 from __future__ import annotations
+
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import argparse
 import random

@@ -20,7 +20,7 @@ import unittest
 from http.client import HTTPConnection
 from typing import Any, Dict, List
 
-import ui_server
+from popstar import server as app_server
 from popstar.board import create_board, get_group, get_legal_moves
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,7 +44,7 @@ class TestEndpoints(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.port = _free_port()
-        cls.server = ui_server.build_server("127.0.0.1", cls.port)
+        cls.server = app_server.build_server("127.0.0.1", cls.port)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
 
@@ -87,7 +87,7 @@ class TestEndpoints(unittest.TestCase):
         scoring.GROUP_COEFFICIENT = 5
         scoring.CLEAR_REWARD_FN = lambda remaining: 123.0 if remaining == 0 else 0.0
         try:
-            cfg = ui_server.PopstarHandler._scoring({"clear_threshold": 3, "bonus_coefficient": 9})
+            cfg = app_server.PopstarHandler._scoring({"clear_threshold": 3, "bonus_coefficient": 9})
             self.assertEqual(cfg.score_group(4), 5 * 16)
             self.assertEqual(cfg.clear_threshold, 3)
             # 自定义清盘函数接管后，请求里的系数不再参与

@@ -112,6 +112,50 @@ def optimistic_bound_with_ceiling(
     return group_part + bonus_part
 
 
+def lookahead_bound(
+    state: BoardState,
+    scoring: Optional[ScoringConfig] = None,
+    depth: int = 0,
+    ceiling: Optional[List[float]] = None,
+) -> float:
+    """深度 ``d`` 的可采纳上界 ``U^(d)``。
+
+    终局就是 ``B(R)``。``depth == 0`` 的非终局就是 :func:`optimistic_bound`。
+    再深一层先走一步真实转移，再套更浅的上界::
+
+        U^(d+1)(S) = max_a [ g(k_a) + U^(d)(T(S, a)) ]
+
+    ``g`` 超可加且单调不减时，层数加深不会把上界抬高，也绝不会低于 ``V(S)``。
+    这道上界可以剪枝。它不是 ``Φ_agg``。默认搜索仍用 ``depth == 0``。
+    """
+    if depth < 0:
+        raise ValueError(f"depth must be >= 0, got {depth}")
+    scoring = scoring or DEFAULT_SCORING
+    if ceiling is None and depth > 0:
+        ceiling = terminal_bonus_ceiling(scoring, state.height * state.width)
+    memo: Dict[Tuple[bytes, int], float] = {}
+
+    def value(current: BoardState, remaining_depth: int) -> float:
+        if is_terminal(current):
+            return scoring.score_terminal(count_remaining(current))
+        if remaining_depth <= 0:
+            return optimistic_bound_with_ceiling(current, scoring, ceiling)
+        key = (current.packed_key, remaining_depth)
+        cached = memo.get(key)
+        if cached is not None:
+            return cached
+        best = float("-inf")
+        for move in get_legal_moves(current):
+            child = apply_move(current, move, validate=False)
+            total = scoring.score_group(move.size) + value(child, remaining_depth - 1)
+            if total > best:
+                best = total
+        memo[key] = best
+        return best
+
+    return value(state, depth)
+
+
 def validate_scoring_for_bound(
     scoring: ScoringConfig, max_blocks: int = 128
 ) -> List[str]:
@@ -258,8 +302,35 @@ def merge_potential(state: BoardState, scoring: ScoringConfig) -> float:
 
     含义是当前因碎片化而尚未释放的理论得分价值，仅用于排序 / 诊断，
     **不能**当作精确上界使用。
+
+    这个量在 :mod:`popstar.topology` 里叫做 ``E_latent``。
+    已经兑现的团值是 ``E_formed``，一步坠落额外形成的团值是 ``ΔE_release``。
+    三者不要再混称势能。
     """
     return board_features(state, scoring).merge
+
+
+def formed_energy(state: BoardState, scoring: Optional[ScoringConfig] = None) -> float:
+    """调用 :func:`popstar.topology.formed_energy`。搜索代码不要在这里加新权重。"""
+    from .topology import formed_energy as _formed_energy
+    return _formed_energy(state, scoring)
+
+
+def latent_energy(state: BoardState, scoring: Optional[ScoringConfig] = None) -> float:
+    """调用 :func:`popstar.topology.latent_energy`。"""
+    from .topology import latent_energy as _latent_energy
+    return _latent_energy(state, scoring)
+
+
+def aggregation_release(
+    before: BoardState,
+    after: BoardState,
+    removed_size: int,
+    scoring: Optional[ScoringConfig] = None,
+) -> float:
+    """调用 :func:`popstar.topology.aggregation_release`。"""
+    from .topology import aggregation_release as _aggregation_release
+    return _aggregation_release(before, after, removed_size, scoring)
 
 
 def cluster_sizes(state: BoardState) -> Tuple[Tuple[int, int], ...]:
@@ -396,6 +467,8 @@ class ExactSolver:
     canonicalize: bool = False
     node_limit: Optional[int] = None
     time_limit: Optional[float] = None
+    # 0：每个节点用乐观上界。正数改用 U^(d)，默认搜索不打开。
+    bound_depth: int = 0
     eta: float = 1.0
     lambda_cluster: float = 1.0
     lambda_isolated: float = 2.0
@@ -403,6 +476,8 @@ class ExactSolver:
     def __post_init__(self) -> None:
         if self.ordering not in {"none", "size", "heuristic"}:
             raise ValueError(f"unknown ordering: {self.ordering}")
+        if self.bound_depth < 0:
+            raise ValueError(f"bound_depth must be >= 0, got {self.bound_depth}")
         if self.use_bound:
             issues = validate_scoring_for_bound(self.scoring)
             if issues:
@@ -531,6 +606,10 @@ class ExactSolver:
         return state.packed_key
 
     def _bound(self, state: BoardState) -> float:
+        if self.bound_depth > 0:
+            return lookahead_bound(
+                state, self.scoring, self.bound_depth, self._ceiling
+            )
         return optimistic_bound_with_ceiling(state, self.scoring, self._ceiling)
 
     def _check_limits(self) -> None:
@@ -944,7 +1023,7 @@ class BeamSolver:
     * ``merge``     = 聚集势能，尚未因碎片化释放的部分
     * ``ceiling[forced]`` = 死色决定的终局奖励上限（清盘可得 ``B(0)``）
 
-    权重默认值由 10x10 四色基准扫参得到（``bench10.py --sweep-eval``）。
+    权重默认值由 10x10 四色基准扫参得到（``python -m bench.bench10 --sweep-eval``）。
     最初的手调权重是 ``(0, -1, 0, 2)``，即在「惩罚碎片化」上做优化；
     基准实测它明显劣于「奖励已成团」的 ``(1, 0, 1, 2)``：
     同样 beam256、同样耗时，10x10 均分 1745 → 2270（+30%），
@@ -958,6 +1037,8 @@ class BeamSolver:
     weight_merge: float = 0.0
     weight_bonus: float = 1.0
     weight_singleton: float = 2.0
+    # 默认 0：不把 ΔE_release 加进排序。实验要开时再设正权重。
+    weight_release: float = 0.0
     dedupe: bool = True
     time_limit: Optional[float] = None
 
@@ -981,6 +1062,10 @@ class BeamSolver:
             self.weight_bonus,
             self.weight_singleton,
         )
+        w_r = self.weight_release
+        release_from_formed = None
+        if w_r:
+            from .topology import release_from_formed as release_from_formed
 
         # 路径用父指针链表保存（parent_id, cell），避免每层为上万个候选复制路径列表
         parents: List[Tuple[int, Any]] = [(-1, None)]
@@ -1009,6 +1094,10 @@ class BeamSolver:
                 if is_terminal(current):
                     record(count_remaining(current), accumulated, node_id)
                     continue
+                parent_formed = (
+                    board_features(current, scoring, g_table=g_table).available
+                    if w_r else 0.0
+                )
                 for move in get_legal_moves(current):
                     expanded += 1
                     # move 直接来自 get_legal_moves，跳过重复的合法性校验
@@ -1022,6 +1111,10 @@ class BeamSolver:
                         + w_b * ceiling[min(features.forced, len(ceiling) - 1)]
                         - w_s * features.singletons
                     )
+                    if w_r:
+                        rank += w_r * release_from_formed(
+                            parent_formed, features.available, g_table[move.size]
+                        )
                     if features.terminal:
                         # 终局在被生成的当下就记账，不等 beam 截断
                         record(features.remaining, acc, len(parents))
@@ -1180,6 +1273,7 @@ __all__ = [
     "group_score_ceiling",
     "nonclear_group_ceiling",
     "solve",
+    "lookahead_bound",
     "optimistic_bound",
     "validate_scoring_for_bound",
     "merge_potential",

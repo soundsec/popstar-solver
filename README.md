@@ -4,7 +4,7 @@
 
 玩法属于 SameGame 这一支，名字沿用了后来在手机上流行的 PopStar（消灭星星）。本仓库是独立实现，不含那款商业游戏的画面、关卡或源码。默认计分沿用公开介绍里的通行规则。出处写在 [SOURCES.md](SOURCES.md)。
 
-基准规模是 **10×10、4 色**。其他规格的游戏可以实现，但求解器不一定稳定。
+基准规模是 **10×10、4 色**。更小的棋盘只用来确认程序能跑通。
 
 ## 规则
 
@@ -72,13 +72,13 @@ python -m unittest discover -s tests
 
 图片识别回归测试需要本机有 Node。用 `识别测试/` 里的实机截图对拍时，还需要 Pillow 和 numpy；没有这些依赖时，对应测试会跳过，其余测试照常跑。
 
-`python bench10.py` 是 10×10 基准，全量大约几分钟，结果写到 `runs/`（该目录不纳入版本库）。
+`python -m bench.bench10` 是 10×10 基准，全量大约几分钟，结果写到 `runs/`（该目录不纳入版本库）。其它测量脚本也在 `bench/` 里，同样用 `python -m bench.脚本名` 运行。
 
 ## 来源
 
-规则来自 1985 年 Kuniaki Moribe 发表在《月刊 ASCII》上的 Chain Shot!，1992 年后以 SameGame 这个名字流传。手机上的 PopStar!《消灭星星》是这一玩法的商业版本。
+规则来自 1985 年 Kuniaki Moribe 发表在《月刊 ASCII》上的 Chain Shot!，1992 年后以 SameGame 这个名字流传。手机上的 PopStar!《消灭星星》是这一玩法的商业版本（开发者 Brian Baek，约 2009 年；中文版由掌游天下引进）。
 
-本仓库的程序、页面和图片识别都是自编写的，没有搬入第三方求解器或游戏源码。求解用的是记忆化搜索、分支定界和 beam search。详细引用见 [SOURCES.md](SOURCES.md)。
+本仓库的程序、页面和图片识别都是在这里写的，没有搬入第三方求解器或游戏源码。求解用的是记忆化搜索、分支定界和 beam search。详细引用见 [SOURCES.md](SOURCES.md)。
 
 ## 目录
 
@@ -89,7 +89,9 @@ python -m unittest discover -s tests
 | `popstar/game.py` | 一局的走子、撤销和终局结算 |
 | `popstar/solver.py` | beam 搜索、精确搜索、Pareto 前沿 |
 | `popstar/generators.py` | 均匀、不均、聚集等开局生成 |
-| `ui_server.py` | 本机 HTTP 服务 |
+| `popstar/server.py` | 本机 HTTP 服务 |
 | `ui/` | 页面、样式、图片识别 |
-| `start.py`、`启动.bat` | 一键启动 |
+| `start.py`、`启动.bat` | 一键启动，打开游玩页 |
+| `main.py` | 命令行走棋 |
+| `bench/` | 基准和对照实验，不参与对局 |
 | `tests/` | 单元测试 |
