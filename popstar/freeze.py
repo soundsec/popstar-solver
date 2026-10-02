@@ -40,7 +40,12 @@ FreezeKey = Tuple[float, float, float]
 
 @dataclass(frozen=True)
 class FreezeResult:
-    """``score`` 是 ``D(S)`` 或 beam 找到的最小 group 分之和。不含终局奖励。"""
+    """一次冻结搜索的结果。不含终局奖励。
+
+    ``proven`` 时 ``score`` 就是 ``D(S)``。
+    未证明时 ``score`` 是已经走到终局的路径里最便宜的一条，因而是 ``D(S)`` 的上界；
+    一条终局都没走到则为 ``+inf``，``moves`` 为空。
+    """
 
     score: float
     moves: Tuple[Move, ...]
@@ -98,7 +103,13 @@ def exact_minimum(
     scoring: Optional[ScoringConfig] = None,
     node_budget: Optional[int] = None,
 ) -> FreezeResult:
-    """记忆化精确求 ``D(S)``。超出 ``node_budget`` 时返回已完成终局里的最小值，并标成未证明。"""
+    """记忆化精确求 ``D(S)``。
+
+    超出 ``node_budget`` 时返回已完成终局里的最小值，并标成未证明。
+    那是一条走得通的冻结路径，分数是 ``D(S)`` 的上界，不是证明了的最小值。
+    预算在走到任何终局之前用完，则分数为 ``+inf``、路径为空。
+    没走完的节点不写入缓存，避免把残缺的最小值当成 ``D(S)``。
+    """
     import time
 
     scoring = scoring or DEFAULT_SCORING
@@ -106,14 +117,27 @@ def exact_minimum(
     memo: Dict[bytes, Tuple[float, Optional[Tuple[int, int]]]] = {}
     expanded = 0
     proven = True
+    path: List[Move] = []
+    best_score = float("inf")
+    best_path: Tuple[Move, ...] = ()
 
-    def solve(current: BoardState) -> float:
+    def remember(accumulated: float, suffix: Tuple[Move, ...]) -> None:
+        nonlocal best_score, best_path
+        if accumulated < best_score:
+            best_score = accumulated
+            best_path = tuple(path) + suffix
+
+    def solve(current: BoardState, accumulated: float) -> float:
         nonlocal expanded, proven
         key = current.packed_key
         cached = memo.get(key)
         if cached is not None:
+            total = accumulated + cached[0]
+            if total < best_score:
+                remember(total, _replay(current, memo))
             return cached[0]
         if is_terminal(current):
+            remember(accumulated, ())
             memo[key] = (0.0, None)
             return 0.0
         if node_budget is not None and expanded >= node_budget:
@@ -128,12 +152,15 @@ def exact_minimum(
                 proven = False
                 break
             expanded += 1
+            path.append(move)
             child = apply_move(current, move, validate=False)
-            tail = solve(child)
+            gain = scoring.score_group(move.size)
+            tail = solve(child, accumulated + gain)
+            path.pop()
             if tail == float("inf"):
                 aborted = True
                 continue
-            cost = scoring.score_group(move.size) + tail
+            cost = gain + tail
             if cost < best:
                 best = cost
                 best_cell = move.representative_cell
@@ -144,10 +171,15 @@ def exact_minimum(
         memo[key] = (best, best_cell)
         return best
 
-    score = solve(state)
-    moves = _replay(state, memo) if proven else ()
+    score = solve(state, 0.0)
+    if proven:
+        reported = score
+        moves = _replay(state, memo)
+    else:
+        reported = best_score
+        moves = best_path
     return FreezeResult(
-        score=score,
+        score=reported,
         moves=moves,
         expanded=expanded,
         proven=proven,

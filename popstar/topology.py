@@ -20,6 +20,9 @@
 
 ``Φ_agg`` 是启发式聚集势，用少数同色候选边上的 ``Δ_ij / (1 + b_ij)`` 求和。
 它不是可采纳上界，不能拿去剪枝。
+
+``U_dead`` 是目前写下来的一种拓扑上界证书：死列把同色块切成互不相通的几段。
+它不是「拓扑上界」这个总称，后面还可以有别的证书。
 """
 
 from __future__ import annotations
@@ -291,13 +294,14 @@ def aggregation_potential(
     return total
 
 
-def dead_column_ceiling(state: BoardState, scoring: Optional[ScoringConfig] = None) -> float:
-    """用「死色列永远清空不了」把同色块切成左右互不相通的几段。
+def u_dead(state: BoardState, scoring: Optional[ScoringConfig] = None) -> float:
+    """死列证书 ``U_dead``。
 
     某种颜色全盘只剩 1 块时，它所在的列永远不会变成空列，左右次序又不能交换。
     另一种颜色若在这列里一格都没有，列两侧的块就永远拼不成一团。
-    上界从 ``g(n)`` 收成各段 ``g(n_i)`` 之和。没有死色时与 ``Σ g(n_c)`` 相同。
-    这是可证明的上界，不是 ``Φ_agg``。
+    上界从 ``g(n)`` 收成各段 ``g(n_i)`` 之和。没有死色时 ``U_dead = U_0 = Σ g(n_c)``。
+
+    这是一种具体的拓扑上界，不是拓扑上界的总称，也不是 ``Φ_agg``。
     """
     scoring = scoring or DEFAULT_SCORING
     counts = color_counts(state)
@@ -354,7 +358,7 @@ __all__ = [
     "cluster_nodes",
     "column_order_holds",
     "column_words",
-    "dead_column_ceiling",
+    "u_dead",
     "describe_move_release",
     "formed_energy",
     "latent_energy",

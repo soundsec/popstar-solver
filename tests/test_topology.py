@@ -14,7 +14,7 @@ from popstar.topology import (
     aggregation_release,
     column_order_holds,
     column_words,
-    dead_column_ceiling,
+    u_dead,
     formed_energy,
     latent_energy,
 )
@@ -88,7 +88,7 @@ class TestDeadColumnCeiling(unittest.TestCase):
             [0, 1, 0],
         ])
         loose = group_score_ceiling(list(color_counts(state).values()), DEFAULT_SCORING.score_group)
-        tight = dead_column_ceiling(state)
+        tight = u_dead(state)
         self.assertAlmostEqual(loose, _g(4))
         self.assertAlmostEqual(tight, 2 * _g(2))
         self.assertAlmostEqual(loose - tight, 10 * 2 * 2)
@@ -98,12 +98,12 @@ class TestDeadColumnCeiling(unittest.TestCase):
             [0, 1, 0],
             [0, 0, 0],
         ])
-        self.assertAlmostEqual(dead_column_ceiling(state), _g(5))
+        self.assertAlmostEqual(u_dead(state), _g(5))
 
     def test_ceiling_never_exceeds_the_color_sum(self):
         state = random_board(5, 5, 4, random.Random(4))
         loose = group_score_ceiling(list(color_counts(state).values()), DEFAULT_SCORING.score_group)
-        self.assertLessEqual(dead_column_ceiling(state), loose + 1e-9)
+        self.assertLessEqual(u_dead(state), loose + 1e-9)
 
     def test_split_matches_the_exact_group_score(self):
         state = create_board([
@@ -112,13 +112,13 @@ class TestDeadColumnCeiling(unittest.TestCase):
         ])
         solved = ExactSolver(use_memo=True, use_bound=True).solve(state)
         self.assertAlmostEqual(solved.group_score, 2 * _g(2))
-        self.assertAlmostEqual(dead_column_ceiling(state), solved.group_score)
+        self.assertAlmostEqual(u_dead(state), solved.group_score)
 
     def test_never_below_exact_group_score_on_small_boards(self):
         for seed in range(4):
             state = random_board(4, 4, 3, random.Random(seed))
             solved = ExactSolver(use_memo=True, use_bound=True).solve(state)
-            self.assertGreaterEqual(dead_column_ceiling(state) + 1e-9, solved.group_score)
+            self.assertGreaterEqual(u_dead(state) + 1e-9, solved.group_score)
 
 
 class TestFreeze(unittest.TestCase):
@@ -147,6 +147,34 @@ class TestFreeze(unittest.TestCase):
         approx = beam_minimum(state, beam_width=32)
         self.assertTrue(exact.proven)
         self.assertAlmostEqual(approx.score, exact.score)
+
+    def test_budget_returns_the_cheapest_finished_path(self):
+        state = random_board(5, 5, 3, random.Random(6))
+        full = exact_minimum(state)
+        self.assertTrue(full.proven)
+        self.assertGreater(full.expanded, 3)
+        partial = None
+        for budget in range(1, full.expanded):
+            candidate = exact_minimum(state, node_budget=budget)
+            if not candidate.proven and candidate.score < float("inf"):
+                partial = candidate
+                break
+        self.assertIsNotNone(partial)
+        self.assertGreaterEqual(partial.score, full.score - 1e-9)
+        replay = state
+        paid = 0.0
+        for move in partial.moves:
+            paid += _g(move.size)
+            replay = apply_move(replay, move)
+        self.assertTrue(is_terminal(replay))
+        self.assertAlmostEqual(paid, partial.score)
+
+    def test_budget_before_any_terminal_is_infinite(self):
+        state = random_board(4, 4, 3, random.Random(1))
+        aborted = exact_minimum(state, node_budget=0)
+        self.assertFalse(aborted.proven)
+        self.assertEqual(aborted.moves, ())
+        self.assertEqual(aborted.score, float("inf"))
 
     def test_heuristic_prefers_a_move_that_destroys_more_per_point(self):
         state = random_board(5, 5, 3, random.Random(3))

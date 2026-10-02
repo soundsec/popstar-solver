@@ -88,6 +88,8 @@ python -m unittest discover -s tests
 | `popstar/scoring.py` | 计分，和棋盘逻辑分开 |
 | `popstar/game.py` | 一局的走子、撤销和终局结算 |
 | `popstar/solver.py` | beam 搜索、精确搜索、Pareto 前沿 |
+| `popstar/topology.py` | 列序不变量、聚集量、拓扑上界 |
+| `popstar/freeze.py` | 最低代价冻结问题 D(S) |
 | `popstar/generators.py` | 均匀、不均、聚集等开局生成 |
 | `popstar/server.py` | 本机 HTTP 服务 |
 | `ui/` | 页面、样式、图片识别 |

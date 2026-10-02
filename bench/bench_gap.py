@@ -28,7 +28,7 @@ from popstar.board import color_counts, random_board
 from popstar.freeze import exact_minimum
 from popstar.scoring import DEFAULT_SCORING
 from popstar.solver import ExactSolver, group_score_ceiling
-from popstar.topology import dead_column_ceiling
+from popstar.topology import u_dead
 
 
 JOBS = (
@@ -61,7 +61,7 @@ def main() -> None:
             frozen = exact_minimum(state, node_budget=400_000)
             counts = list(color_counts(state).values())
             upper = group_score_ceiling(counts, DEFAULT_SCORING.score_group)
-            tight = dead_column_ceiling(state)
+            tight = u_dead(state)
             group_gap = solved.group_score - frozen.score if frozen.proven else float("nan")
             row = {
                 "proven": solved.is_proven_optimal and frozen.proven,
