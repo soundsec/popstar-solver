@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# 测试与基准产出
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+runs/
+
+# 图片识别的调试中间图，以及实机截图（商业游戏画面，不放进公开仓库）
+识别测试/_debug/
+识别测试/*.jpg
+识别测试/*.jpeg
+识别测试/*.png
+
+# 本机工具与编辑器
+.workbuddy/
+.vscode/
+.idea/
+.cursor/
+
+# 系统
+.DS_Store
+Thumbs.db
+desktop.ini

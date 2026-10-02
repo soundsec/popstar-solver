@@ -1,0 +1,207 @@
+:root {
+  --bg: #f6f7f9;
+  --panel: #ffffff;
+  --line: #dfe3e8;
+  --text: #1c2128;
+  --muted: #6b7480;
+  --accent: #2f6feb;
+  --accent-soft: #e7efff;
+  --good: #1a7f37;
+  --warn: #9a6700;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 28px 32px 48px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.55 -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif;
+}
+
+header, main {
+  max-width: 1120px;
+  margin-left: auto;
+  margin-right: auto;
+}
+header { margin-bottom: 16px; }
+h1 { font-size: 19px; margin: 0 0 2px; font-weight: 650; }
+h2 { font-size: 15px; margin: 20px 0 8px; font-weight: 650; }
+.hint { color: var(--muted); font-size: 12.5px; }
+.hint strong { color: var(--text); }
+
+main {
+  display: grid;
+  /* 棋盘占剩余宽度，求解/游玩栏收窄，避免宽屏上右侧被拉得很大 */
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 22px;
+  align-items: start;
+}
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px 17px;
+}
+
+.row { display: flex; flex-wrap: wrap; gap: 9px 12px; align-items: center; margin-bottom: 9px; }
+.row label { display: inline-flex; gap: 5px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.row input, .row select {
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px;
+  font: inherit; font-size: 13px; width: 74px; background: #fff; color: var(--text);
+}
+.row input[type="range"] { width: 190px; padding: 0; }
+.row select { width: auto; }
+
+button {
+  border: 1px solid var(--line); background: #fff; color: var(--text);
+  border-radius: 6px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: #2560d0; }
+
+/* 棋盘 */
+.board {
+  display: grid; gap: 4px; margin: 14px auto;
+  width: 100%;
+}
+.cell {
+  aspect-ratio: 1; border-radius: 6px; border: 1px solid rgba(0, 0, 0, .07);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, .92);
+  cursor: default; user-select: none; transition: transform .08s, box-shadow .08s;
+  /* 兜底：万一浏览器不支持 aspect-ratio，格子高度会塌成 0，
+     结果就是「看得见边框但点不到」——这里保证它至少有可点击的高度 */
+  min-height: 20px;
+}
+.cell.empty { background: #f0f2f5 !important; border-color: transparent; cursor: default; }
+.cell.playable { cursor: pointer; }
+.cell.hl { box-shadow: 0 0 0 2px var(--text) inset; transform: scale(1.06); }
+.cell.nextmove {
+  position: relative;
+  box-shadow: 0 0 0 3px #fff inset, 0 0 0 5px var(--good);
+  z-index: 1;
+}
+.cell.nextmove::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--good);
+}
+.cell.removing { opacity: .25; }
+
+/* 计分行 */
+.scoreline { gap: 16px; margin: 12px 0 10px; }
+.stat { display: flex; flex-direction: column; }
+.stat .k { font-size: 11.5px; color: var(--muted); }
+.stat .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+.playback { margin-bottom: 6px; }
+#step-label { margin-left: 4px; }
+
+.detail {
+  background: #f8f9fb; border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 11px; font: 12px/1.5 ui-monospace, Consolas, Menlo, monospace;
+  white-space: pre-wrap; color: #333a44; max-height: 220px; overflow: auto; margin: 8px 0 0;
+}
+
+.profile {
+  background: #f8f9fb; border: 1px solid var(--line); border-radius: 7px;
+  padding: 7px 11px; font-size: 12.5px; color: #333a44; margin-bottom: 8px;
+}
+.profile .tight { color: var(--good); font-weight: 650; }
+.profile .loose { color: var(--warn); font-weight: 650; }
+
+.verdict {
+  background: var(--accent-soft); border-radius: 7px; padding: 8px 11px;
+  font-size: 13px; margin-bottom: 10px; color: #163a6b;
+}
+
+/* 表格 */
+.grid-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 4px; }
+.grid-table th, .grid-table td {
+  border-bottom: 1px solid var(--line); padding: 4px 7px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.grid-table th { color: var(--muted); font-weight: 600; text-align: right; }
+.grid-table td:last-child, .grid-table th:last-child { text-align: left; }
+.grid-table tr.pareto td { background: #f2f8f4; font-weight: 650; }
+.grid-table tr.best td { background: #fff8e6; }
+.grid-table td button { padding: 2px 8px; font-size: 12px; }
+
+.tag { color: var(--good); font-size: 11.5px; }
+.tag.muted { color: var(--muted); }
+
+/* 错误红条：任何失败都必须可见，不能让用户面对「点了没反应」 */
+.fatal {
+  background: #fdecec; border: 1px solid #f0b4b4; color: #8f2222;
+  border-radius: 8px; padding: 9px 13px; margin-bottom: 12px;
+  font-size: 13px; font-weight: 600;
+}
+.fatal[hidden] { display: none; }
+
+/* 标签页（游玩 / 分析共用一块棋盘） */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+.tab {
+  border: none; background: none; border-bottom: 2px solid transparent;
+  padding: 6px 14px; font: inherit; font-size: 14px; color: var(--muted);
+  border-radius: 0; cursor: pointer;
+}
+.tab:hover { border-color: transparent; color: var(--text); }
+.tab.active { color: var(--text); font-weight: 650; border-bottom-color: var(--accent); }
+
+/* 弹层（图片识别，同页面打开不跳转） */
+.modal {
+  position: fixed; inset: 0; background: rgba(20, 24, 30, .45);
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow: auto; padding: 28px 16px; z-index: 50;
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  background: var(--panel); border-radius: 11px; padding: 16px 18px 20px;
+  width: min(760px, 100%); box-shadow: 0 12px 40px rgba(0, 0, 0, .22);
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; font-size: 15px;
+}
+button.link {
+  border: none; background: none; color: var(--muted);
+  font: inherit; font-size: 13px; cursor: pointer; padding: 2px 4px;
+}
+button.link:hover { color: var(--accent); border-color: transparent; }
+
+/* 图片识别 */
+.dropzone {
+  border: 2px dashed var(--line); border-radius: 9px; padding: 16px;
+  text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 10px;
+}
+.dropzone.hot { border-color: var(--accent); background: var(--accent-soft); }
+.canvas { display: block; border: 1px solid var(--line); border-radius: 7px; cursor: crosshair; }
+.palette { gap: 10px; margin: 8px 0; }
+.swatch {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.swatch i {
+  width: 15px; height: 15px; border-radius: 4px; display: inline-block;
+  border: 1px solid rgba(0, 0, 0, .12);
+}
+
+/* 游玩页 */
+.play-main { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); }
+.log {
+  margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--muted);
+  max-height: 190px; overflow: auto;
+}
+.log li { padding: 1px 0; }

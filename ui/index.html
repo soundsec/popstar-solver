@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PopStar · 游玩 + 求解</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>PopStar · 游玩 + 求解</h1>
+  <span class="hint">基准规模 10×10 / 4 色 · 棋盘常驻可玩 · 规则计算全部在服务端</span>
+</header>
+
+<main>
+  <!-- 左：棋盘（两个标签共用，任何时候都能直接点着玩） -->
+  <section class="panel board-panel">
+    <div class="row">
+      <label>行 <input id="in-h" type="number" value="10" min="2" max="20"></label>
+      <label>列 <input id="in-w" type="number" value="10" min="2" max="20"></label>
+      <label>色数 <input id="in-colors" type="number" value="4" min="2" max="8"></label>
+      <label>种子 <input id="in-seed" type="text" placeholder="留空随机"></label>
+    </div>
+    <div class="row">
+      <label>生成方式
+        <select id="in-generator">
+          <option value="uniform">uniform（iid 均匀）</option>
+          <option value="imbalanced">imbalanced（数量不均）</option>
+          <option value="clustered">clustered（空间聚集）</option>
+          <option value="clustered_imb">clustered_imb（聚集 + 不均）</option>
+          <option value="extreme">extreme（极端数量不均）</option>
+          <option value="blob5">blob5（强聚集大色块）</option>
+        </select>
+      </label>
+      <button id="btn-random" class="primary">新一局</button>
+      <button id="btn-import">从图片读取…</button>
+    </div>
+    <div id="board-profile" class="profile">—</div>
+
+    <div id="board" class="board" aria-label="棋盘"></div>
+
+    <div class="row scoreline">
+      <div class="stat"><span class="k">总分</span><span id="s-total" class="v">0</span></div>
+      <div class="stat"><span class="k">group</span><span id="s-group" class="v">0</span></div>
+      <div class="stat"><span class="k">bonus</span><span id="s-bonus" class="v">0</span></div>
+      <div class="stat"><span class="k">剩余</span><span id="s-remaining" class="v">—</span></div>
+      <div class="stat"><span class="k">步数</span><span id="s-moves" class="v">0</span></div>
+      <div class="stat"><span class="k">可消块</span><span id="s-left" class="v">—</span></div>
+    </div>
+
+    <div class="row playback">
+      <button id="btn-prev">← 上一步</button>
+      <button id="btn-next">下一步 →</button>
+      <button id="btn-play">自动播放</button>
+      <button id="btn-reset">回到初始</button>
+      <span id="step-label" class="hint">—</span>
+    </div>
+
+    <div id="gameover" class="verdict" hidden></div>
+    <p class="hint">
+      鼠标停在方块上会高亮所属连通块；直接点击即手动消除一步（规则由服务端裁决）。
+      棋盘在两个标签下都可玩。
+    </p>
+  </section>
+
+  <!-- 右：标签页 -->
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button id="tab-btn-play" class="tab active" data-tab="play">游玩</button>
+      <button id="tab-btn-analyze" class="tab" data-tab="analyze">分析</button>
+    </div>
+
+    <!-- 游玩 -->
+    <div id="tab-play" class="tabbody">
+      <div class="row">
+        <button id="btn-undo">撤销</button>
+        <button id="btn-restart">重开本局</button>
+        <button id="btn-hint">提示（求解器算一步）</button>
+      </div>
+      <h2>本局记录</h2>
+      <ol id="log" class="log"></ol>
+      <h2>最高分</h2>
+      <div id="best" class="detail">—</div>
+      <h2>玩法</h2>
+      <div class="detail">
+        点击大小 ≥ 2 的同色连通块即可消除（点块里任意一格都行）；消除后先竖直下落，再把空列左移。
+        消去 n 颗得 5n²。结束时剩余少于 10 颗，再加 2000−5×剩余数，否则没有这项奖励。
+        公式在 popstar/scoring.py 顶部，刷新页面后生效。
+        「提示」会用 beam 搜索在当前局面上算一步建议走法。
+      </div>
+    </div>
+
+    <!-- 分析 -->
+    <div id="tab-analyze" class="tabbody" hidden>
+      <h2>求解</h2>
+      <div class="row">
+        <label>模式
+          <select id="in-mode">
+            <option value="fast" selected>fast（beam，best found）</option>
+            <option value="exact">exact（DFS + 记忆化）</option>
+          </select>
+        </label>
+        <label>beam 宽度 <input id="in-beam" type="number" value="256" min="1" max="8192"></label>
+        <label>时限(s) <input id="in-time" type="number" value="20" min="1" max="600"></label>
+      </div>
+      <div class="row">
+        <button id="btn-solve" class="primary">求解</button>
+        <span id="solve-status" class="hint">—</span>
+      </div>
+      <pre id="solve-detail" class="detail">—</pre>
+      <p class="hint">求出的解会在棋盘上标出下一步要消除的整块；用棋盘下方的「下一步」推进后，标记跟着移动。</p>
+
+      <h2>终局 (G, R) Pareto 前沿</h2>
+      <p class="hint">
+        搜索目标里不含终局奖励，只记录「终局剩 R 块时的最高 group 分 G」。
+        表里的 B(R) 再用通行规则加上去，标出 G+B 最高的那一行。
+      </p>
+      <div class="row">
+        <button id="btn-pareto" class="primary">计算前沿</button>
+        <label>beam 宽度 <input id="in-pbeam" type="number" value="256" min="1" max="8192"></label>
+        <span id="pareto-status" class="hint">—</span>
+      </div>
+
+      <div id="lambda-verdict" class="verdict">—</div>
+
+      <table id="pareto-table" class="grid-table">
+        <thead><tr><th>R</th><th>G</th><th>η_G</th><th>B(R)</th><th>Pareto</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <pre id="pareto-detail" class="detail">—</pre>
+    </div>
+  </section>
+</main>
+
+<!-- 图片识别弹层（同页面打开，不跳转） -->
+<div id="import-modal" class="modal" hidden>
+  <div class="modal-box">
+    <div class="modal-head">
+      <strong>从图片读取棋盘</strong>
+      <button id="btn-import-close" class="link">关闭</button>
+    </div>
+
+    <div class="row">
+      <input id="file" type="file" accept="image/*">
+      <span class="hint">也可以把图片拖到下面，或直接 Ctrl+V 粘贴</span>
+    </div>
+    <div id="drop" class="dropzone">把图片拖到这里</div>
+    <canvas id="canvas" class="canvas"></canvas>
+    <p class="hint">在图上<strong>拖动</strong>可手动框选棋盘区域（自动检测不准时用这招）。</p>
+
+    <div class="row">
+      <label>行数 <input id="in-rows" type="number" value="10" min="2" max="30"></label>
+      <label>列数 <input id="in-cols" type="number" value="10" min="2" max="30"></label>
+      <label>颜色数 <input id="in-k" type="number" value="5" min="2" max="8"></label>
+      <label>空格阈值 <input id="in-thr" type="range" min="0" max="160" value="60">
+        <output id="out-thr">60</output>
+      </label>
+    </div>
+    <div class="row">
+      <button id="btn-detect">自动框选</button>
+      <button id="btn-extract" class="primary">识别棋盘</button>
+      <span id="scan-status" class="hint">—</span>
+    </div>
+
+    <p class="hint">
+      点识别结果里的格子可循环切换它的颜色（含「空格」）来修正误判。
+      颜色只是相等性标签，编号顺序不影响求解。
+    </p>
+    <div id="preview" class="board"></div>
+    <div id="palette" class="row palette"></div>
+    <div class="row">
+      <button id="btn-load-board" class="primary">载入到棋盘</button>
+      <span id="import-status" class="hint">—</span>
+    </div>
+    <pre id="scan-detail" class="detail">—</pre>
+  </div>
+</div>
+
+<script src="common.js"></script>
+<script src="vision.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
